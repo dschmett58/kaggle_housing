@@ -240,7 +240,7 @@ train['SalePrice'] = y_train_unskew
 test = allData_unskew.query("Id >= 1461")
 
 
-# In[16]:
+# In[17]:
 
 
 # identify outliers (SLOW)
@@ -248,10 +248,11 @@ X = train.drop(['SalePrice','Id'], axis = 1)
 model = sm.OLS(y_train_unskew,X)
 results = model.fit()
 bonf_test = results.outlier_test()['bonf(p)']
-bonf_outlier = list(bonf_test[bonf_test<1e-3].index)
+bonf_outlier = list(bonf_test[bonf_test<1e-2].index)
+bonf_outlier
 
 
-# In[21]:
+# In[18]:
 
 
 # remove outliers from training data
@@ -259,7 +260,15 @@ train_good = train.drop(bonf_outlier, axis=0)
 y_train_good = np.delete(y_train_unskew, bonf_outlier)
 
 
-# In[22]:
+# In[19]:
+
+
+# DEBUG = plot some stuff, see if outliers are really gone
+plt.scatter(train['GrLivArea'],y_train)
+plt.scatter(train_good['GrLivArea'],np.expm1(y_train_good))
+
+
+# In[20]:
 
 
 # ---------- EXPORT CLEAN DATA ----------
@@ -273,7 +282,7 @@ test.to_csv('p_test.csv')
 #file["Id"]
 
 
-# In[23]:
+# In[21]:
 
 
 # ---------- LINEAR REGRESSION ----------
@@ -282,7 +291,7 @@ x_train = train_good.drop(['SalePrice', 'Id'], axis=1)
 x_test  = test.drop(['Id'], axis=1)
 
 
-# In[24]:
+# In[22]:
 
 
 # Random Forest Regressor
@@ -291,7 +300,7 @@ rf_test.fit(x_train, y_train_good)
 preds_rf = np.expm1(rf_test.predict(x_test))    # expm1 (inv of logp1) un-normalizes the dependent variable SalePrice
 
 
-# In[25]:
+# In[23]:
 
 
 # XGB regressor
@@ -300,7 +309,7 @@ xgb_test.fit(x_train, y_train_good)
 preds_xgb = np.expm1(xgb_test.predict(x_test))
 
 
-# In[26]:
+# In[24]:
 
 
 # LassoCV
@@ -311,14 +320,14 @@ scale_LCV.fit(x_train, y_train_good)
 preds_lasso = np.expm1(scale_LCV.predict(x_test))
 
 
-# In[27]:
+# In[25]:
 
 
 # average the predictions of both regressors
 preds = (preds_xgb + preds_lasso + preds_rf)/3
 
 
-# In[28]:
+# In[26]:
 
 
 # ---------- EXPORT PREDICTIONS ----------

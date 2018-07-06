@@ -1,3 +1,9 @@
+
+# coding: utf-8
+
+# In[1]:
+
+
 # matlab-stuff  kaggle-house 
 
 import pandas as pd
@@ -12,6 +18,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost.sklearn import XGBRegressor
 
+
+# In[2]:
+
+
 # read in data
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
@@ -20,10 +30,18 @@ test = pd.read_csv('test.csv')
 ntrain = train.shape[0]
 ntest = test.shape[0]
 
+
+# In[3]:
+
+
 # Let's look at a heatmap of the features
 corr = train.corr()
-plt.subplots(figsize=(20, 20))
-sns.heatmap(corr, cmap='rainbow', vmax=0.9, square=True)
+#plt.subplots(figsize=(20, 20))
+#sns.heatmap(corr, cmap='rainbow', vmax=0.9, square=True)
+
+
+# In[4]:
+
 
 # Now concatenate the training and test data so we can fill in missing variables
 y_train = train.SalePrice.values
@@ -34,7 +52,11 @@ all_data_na = (allData.isnull().sum() / len(allData)) * 100
 all_data_na = all_data_na.drop(all_data_na[all_data_na == 0].index).sort_values(ascending=False)[:30]
 
 missingDataPlot = pd.DataFrame({'Missing Ratio' : all_data_na})
-missingDataPlot
+#missingDataPlot
+
+
+# In[5]:
+
 
 # Fill in any NA values with "None" where it applies
 allData['PoolQC'] = allData['PoolQC'].fillna("None")
@@ -51,6 +73,10 @@ allData['BsmtFinType2'] = allData['BsmtFinType2'].fillna("None")
 # Is this the best way to handle this (in this case, None = None)
 allData['MasVnrType'] = allData['MasVnrType'].fillna("None")
 
+
+# In[6]:
+
+
 # zoning is mixed type (objects etc). by forcing str, the fillna works again
 allData['MSZoning']=allData['MSZoning'].astype(str)
 allData['KitchenQual']=allData['KitchenQual'].astype(str)
@@ -59,6 +85,10 @@ allData['Exterior2nd']=allData['Exterior2nd'].astype(str)
 allData['Electrical']=allData['Electrical'].astype(str)
 # mszoning has a special "nan" that is not np.nan
 # allData['MSZoning'] = allData['MSZoning'].replace({"nan" : allData['MSZoning'].mode()},regex=True)
+
+
+# In[7]:
+
 
 # Other features will require numerical data
 allData['GarageCars'] = allData['GarageCars'].fillna(0)
@@ -69,6 +99,10 @@ allData['TotalBsmtSF'] = allData['TotalBsmtSF'].fillna(0)
 allData['BsmtFinSF1'] = allData['TotalBsmtSF'].fillna(0)
 allData['BsmtFinSF2'] = allData['TotalBsmtSF'].fillna(0)
 
+
+# In[8]:
+
+
 # Drop features that may skew data if their missing data is filled with 0 or None
 allData.drop(['GarageArea'], axis=1, inplace=True)
 allData.drop(['GarageYrBlt'], axis=1, inplace=True)
@@ -77,6 +111,10 @@ allData.drop(['GarageCond'], axis=1, inplace=True)
 allData.drop(['GarageFinish'], axis=1, inplace=True)
 allData.drop(['GarageType'], axis=1, inplace=True)
 allData.drop(['MasVnrArea'], axis=1, inplace=True)
+
+
+# In[9]:
+
 
 # Special Cases: LotFrontage, MSZoning, Utilities, Electrical, Exterior1st, Exterior2nd, Functional
 # For the following features, it may be safe to asusme that there is consistency within
@@ -111,6 +149,10 @@ allData['Exterior1st'] = allData.groupby("Neighborhood")['Exterior1st'].transfor
 allData['Exterior2nd'] = allData.groupby("Neighborhood")['Exterior2nd'].transform(
     lambda x: x.fillna(x.mode()))
 
+
+# In[10]:
+
+
 # Data description states to assume  Typical funtionality unless otherwise stated
 allData['Functional'] = allData['Functional'].fillna("Typ")
 
@@ -119,11 +161,15 @@ allData['SaleType'] = allData['SaleType'].fillna("WD")
 
 # For Utilities, the vast majority of the houses have the same value.
 missingDataPlot = [x for x in allData['Utilities'] if x != "AllPub"]
-missingDataPlot
+#missingDataPlot
 
 # Only three of these houses do not have "AllPub." 
 # The "NoSeWa" is in the training set. 
 # The feature is therefore useless to us for prediction
+
+
+# In[11]:
+
 
 # TODO
 # Do we also drop the house that has NoSeWa?
@@ -131,13 +177,21 @@ allData.drop(['Utilities'], axis=1, inplace=True)
 
 # Check one more time to make sure we have not missed any missing data
 nan_rows = allData[allData.isnull().T.any().T]
-nan_rows
+#nan_rows
+
+
+# In[12]:
+
 
 all_data_na = (allData.isnull().sum() / len(allData)) * 100
 all_data_na = all_data_na.drop(all_data_na[all_data_na == 0].index).sort_values(ascending=False)[:30]
 
 missingDataPlot = pd.DataFrame({'Missing Ratio' : all_data_na})
-missingDataPlot
+#missingDataPlot
+
+
+# In[13]:
+
 
 # change 'secretly ordinal' features into numerical ones, provide more data to the model
 has_rank = [col for col in allData if 'TA' in list(allData[col])]
@@ -152,7 +206,11 @@ d_cols = allData.select_dtypes(include=['number']).columns
 allData = allData[d_cols]
 allData = allData.fillna(allData.median())
 
-# fix the skew for all numerical features
+
+# In[14]:
+
+
+# identify skew for numerical features
 cols = [col for col in allData if '_2num' in col or '_' not in col]
 skew = [abs(stats.skew(allData[col])) for col in allData if '_2num' in col or '_' not in col]
 skews = pd.DataFrame()
@@ -165,10 +223,21 @@ allData_unskew = allData.copy()
 for col in cols_unskew:
     allData_unskew[col] = np.log1p(allData[col])
 
+
+# In[15]:
+
+
+# get rid of annoying warning that we thought was an error
+pd.options.mode.chained_assignment = None  # default='warn'
+
 # Split the testing and training data back into two collections
 train = allData.query("Id < 1461")
 train['SalePrice'] = y_train
 test = allData.query("Id >= 1461")
+
+
+# In[16]:
+
 
 # ---------- EXPORT CLEAN DATA ----------
 
@@ -178,7 +247,11 @@ test.to_csv('p_test.csv')
 
 # check Id nums
 file = pd.read_csv('p_test.csv')
-file["Id"]
+#file["Id"]
+
+
+# In[17]:
+
 
 # ---------- LINEAR REGRESSION ----------
 
@@ -188,25 +261,42 @@ x_test  = test.drop(['Id'], axis=1)
 # Random Forest Regressor
 rf_test = RandomForestRegressor(max_depth=30, n_estimators=500, max_features=100, oob_score=True, random_state=1234)
 rf_test.fit(x_train, y_train)
-preds_rf = np.expm1(rf_test.predict(x_test))
+preds_rf = rf_test.predict(x_test)
+
+
+# In[18]:
+
 
 # XGB regressor
 xgb_test = XGBRegressor(learning_rate=0.05, n_estimators=500, max_depth=3, colsample_bytree=0.4)
 xgb_test.fit(x_train, y_train)
-preds_xgb = np.expm1(xgb_test.predict(x_test))   # expm1 undoes log1p
+preds_xgb = xgb_test.predict(x_test)
+
+
+# In[22]:
+
 
 # LassoCV
 scaler = StandardScaler()
 LCV = LassoCV()
 scale_LCV = Pipeline([('scaler', scaler), ('LCV', LCV)])
 scale_LCV.fit(x_train, y_train)
-preds_lasso = np.expm1(scale_LCV.predict(x_test))
+preds_lasso = scale_LCV.predict(x_test)
+
+
+# In[23]:
+
 
 # average the predictions of both regressors
 preds = (preds_xgb + preds_lasso + preds_rf)/3
+
+
+# In[24]:
+
 
 # ---------- EXPORT PREDICTIONS ----------
 out_preds = pd.DataFrame()
 out_preds['Id'] = test['Id']
 out_preds['SalePrice'] = preds
 out_preds.to_csv('output.csv', index=False)
+

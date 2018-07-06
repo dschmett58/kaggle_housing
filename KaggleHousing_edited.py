@@ -10,8 +10,9 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy import stats
+import statsmodels.api as sm
 
+from scipy import stats
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LassoCV
 from sklearn.pipeline import Pipeline
@@ -223,6 +224,9 @@ allData_unskew = allData.copy()
 for col in cols_unskew:
     allData_unskew[col] = np.log1p(allData[col])
 
+# unskew SalePrice
+y_train_unskew = np.log1p(y_train)
+
 
 # In[15]:
 
@@ -231,67 +235,90 @@ for col in cols_unskew:
 pd.options.mode.chained_assignment = None  # default='warn'
 
 # Split the testing and training data back into two collections
-train = allData.query("Id < 1461")
-train['SalePrice'] = y_train
-test = allData.query("Id >= 1461")
+train = allData_unskew.query("Id < 1461")
+train['SalePrice'] = y_train_unskew
+test = allData_unskew.query("Id >= 1461")
 
 
 # In[16]:
 
 
+# identify outliers (SLOW)
+X = train.drop(['SalePrice','Id'], axis = 1)
+model = sm.OLS(y_train_unskew,X)
+results = model.fit()
+bonf_test = results.outlier_test()['bonf(p)']
+bonf_outlier = list(bonf_test[bonf_test<1e-3].index)
+
+
+# In[21]:
+
+
+# remove outliers from training data
+train_good = train.drop(bonf_outlier, axis=0)
+y_train_good = np.delete(y_train_unskew, bonf_outlier)
+
+
+# In[22]:
+
+
 # ---------- EXPORT CLEAN DATA ----------
 
 # Then write the data sets to a csv
-train.to_csv('p_train.csv')
+train_good.to_csv('p_train.csv')
 test.to_csv('p_test.csv')
 
 # check Id nums
-file = pd.read_csv('p_test.csv')
+#file = pd.read_csv('p_test.csv')
 #file["Id"]
 
 
-# In[17]:
+# In[23]:
 
 
 # ---------- LINEAR REGRESSION ----------
 
-x_train = train.drop(['SalePrice', 'Id'], axis=1)
+x_train = train_good.drop(['SalePrice', 'Id'], axis=1)
 x_test  = test.drop(['Id'], axis=1)
+
+
+# In[24]:
+
 
 # Random Forest Regressor
 rf_test = RandomForestRegressor(max_depth=30, n_estimators=500, max_features=100, oob_score=True, random_state=1234)
-rf_test.fit(x_train, y_train)
-preds_rf = rf_test.predict(x_test)
+rf_test.fit(x_train, y_train_good)
+preds_rf = np.expm1(rf_test.predict(x_test))    # expm1 (inv of logp1) un-normalizes the dependent variable SalePrice
 
 
-# In[18]:
+# In[25]:
 
 
 # XGB regressor
 xgb_test = XGBRegressor(learning_rate=0.05, n_estimators=500, max_depth=3, colsample_bytree=0.4)
-xgb_test.fit(x_train, y_train)
-preds_xgb = xgb_test.predict(x_test)
+xgb_test.fit(x_train, y_train_good)
+preds_xgb = np.expm1(xgb_test.predict(x_test))
 
 
-# In[22]:
+# In[26]:
 
 
 # LassoCV
 scaler = StandardScaler()
 LCV = LassoCV()
 scale_LCV = Pipeline([('scaler', scaler), ('LCV', LCV)])
-scale_LCV.fit(x_train, y_train)
-preds_lasso = scale_LCV.predict(x_test)
+scale_LCV.fit(x_train, y_train_good)
+preds_lasso = np.expm1(scale_LCV.predict(x_test))
 
 
-# In[23]:
+# In[27]:
 
 
 # average the predictions of both regressors
 preds = (preds_xgb + preds_lasso + preds_rf)/3
 
 
-# In[24]:
+# In[28]:
 
 
 # ---------- EXPORT PREDICTIONS ----------
